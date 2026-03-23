@@ -7,9 +7,6 @@
 
 namespace iris {
 
-/**
- * Record of a single RPC transaction on the server side.
- */
 struct TransactionRecord {
     std::string id;
     std::string timestamp;
@@ -22,9 +19,6 @@ struct TransactionRecord {
     double processing_time_ms = 0.0;
 };
 
-/**
- * Aggregated performance metrics for a single command.
- */
 struct MetricsSummary {
     std::string command;
     int total_calls = 0;

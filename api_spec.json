@@ -1,0 +1,78 @@
+{
+    "version": "1.0",
+    "generated_at": "2026-03-23T11:28:12Z",
+    "functions": [
+        {
+            "name": "add",
+            "args": [
+                {
+                    "name": "a",
+                    "type": "int"
+                },
+                {
+                    "name": "b",
+                    "type": "int"
+                }
+            ],
+            "returns": "int"
+        },
+        {
+            "name": "reverse",
+            "args": [
+                {
+                    "name": "s",
+                    "type": "string"
+                }
+            ],
+            "returns": "string"
+        },
+        {
+            "name": "multiply",
+            "args": [
+                {
+                    "name": "a",
+                    "type": "double"
+                },
+                {
+                    "name": "b",
+                    "type": "double"
+                }
+            ],
+            "returns": "double"
+        },
+        {
+            "name": "fibonacci",
+            "args": [
+                {
+                    "name": "n",
+                    "type": "int"
+                }
+            ],
+            "returns": "int"
+        },
+        {
+            "name": "to_base",
+            "args": [
+                {
+                    "name": "number",
+                    "type": "int"
+                },
+                {
+                    "name": "base",
+                    "type": "int"
+                }
+            ],
+            "returns": "string"
+        },
+        {
+            "name": "tfidf",
+            "args": [
+                {
+                    "name": "term",
+                    "type": "string"
+                }
+            ],
+            "returns": "string"
+        }
+    ]
+}
