@@ -7,7 +7,6 @@ import tempfile
 
 import pytest
 
-# Add the tools directory to the path so we can import generate_spec
 sys.path.insert(
     0,
     os.path.join(os.path.dirname(__file__), "..", "..", "tools"),
@@ -120,7 +119,6 @@ def test_spec_structure(sample_api_header: str) -> None:
 def test_spec_json_serializable(sample_api_header: str) -> None:
     functions = parse_api_header(sample_api_header)
     spec = generate_spec(functions)
-    # Must not raise
     json_str = json.dumps(spec, indent=4)
     parsed = json.loads(json_str)
     assert parsed["version"] == "1.0"
@@ -136,13 +134,9 @@ def test_unsupported_type_skipped(
     functions = parse_api_header(header_with_unsupported_type)
     names = [f["name"] for f in functions]
 
-    # get_values should be skipped due to unsupported return type
     assert "get_values" not in names
-    # add and multiply should still be present
     assert "add" in names
     assert "multiply" in names
-
-    # Check that a warning was printed to stderr
     captured = capsys.readouterr()
     assert "WARNING" in captured.err
     assert "get_values" in captured.err

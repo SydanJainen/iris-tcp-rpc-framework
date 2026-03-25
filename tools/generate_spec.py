@@ -6,7 +6,6 @@ import sys
 from datetime import datetime, timezone
 
 
-# Mapping from C++ types to spec types.
 TYPE_MAP: dict[str, str] = {
     "int": "int",
     "double": "double",

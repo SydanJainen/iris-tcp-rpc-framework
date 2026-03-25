@@ -28,14 +28,6 @@ public:
         return frame;
     }
 
-    /**
-     * Extract the payload from a length-prefixed frame.
-     *
-     * Reads the first 4 bytes as a big-endian uint32 length N,
-     * then returns the next N bytes as the payload.
-     *
-     * @throws std::runtime_error if the stream is too short.
-     */
     std::vector<uint8_t> unpack(const std::vector<uint8_t>& stream) override {
         if (stream.size() < 4) {
             throw std::runtime_error(
