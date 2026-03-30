@@ -95,6 +95,8 @@ def main() -> None:
     )
     parser.add_argument(
         "header",
+        nargs="?",
+        default="server/src/api.h",
         help="Path to the C++ header file (e.g. server/src/api.h)",
     )
     parser.add_argument(
