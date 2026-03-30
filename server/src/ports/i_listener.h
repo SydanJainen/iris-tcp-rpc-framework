@@ -4,16 +4,16 @@
 #include <cstdint>
 #include <memory>
 
-namespace iris {
+#include "ports/i_connection.h"
 
-class Connection;
+namespace iris {
 
 class IListener {
 public:
     virtual ~IListener() = default;
 
     virtual void start(uint16_t port) = 0;
-    virtual Connection accept() = 0;
+    virtual std::unique_ptr<IConnection> accept() = 0;
     virtual void stop() = 0;
 };
 

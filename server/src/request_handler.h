@@ -7,7 +7,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include "connection.h"
+#include "ports/i_connection.h"
 #include "ports/i_dispatcher.h"
 #include "ports/i_framer.h"
 #include "ports/i_serializer.h"
@@ -21,7 +21,7 @@ public:
                    IDispatcher& dispatcher,
                    nlohmann::json api_spec);
 
-    void handle_connection(Connection& conn);
+    void handle_connection(IConnection& conn);
 
 private:
     IFramer& framer_;
@@ -29,9 +29,9 @@ private:
     IDispatcher& dispatcher_;
     nlohmann::json api_spec_;
 
-    std::vector<uint8_t> read_exact(Connection& conn, size_t n);
-    void send_json_response(Connection& conn, const nlohmann::json& response);
-    void send_error_response(Connection& conn,
+    std::vector<uint8_t> read_exact(IConnection& conn, size_t n);
+    void send_json_response(IConnection& conn, const nlohmann::json& response);
+    void send_error_response(IConnection& conn,
                              const std::string& id,
                              const std::string& error_code,
                              const std::string& message);

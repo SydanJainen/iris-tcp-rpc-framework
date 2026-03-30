@@ -7,12 +7,10 @@
 #include <nlohmann/json.hpp>
 
 #include "container.h"
-#include "connection.h"
 #include "request_handler.h"
 
 #include "adapters/length_prefixed_framer.h"
 #include "adapters/json_serializer.h"
-#include "adapters/tcp_listener.h"
 #include "adapters/dispatcher.h"
 
 #include "domain/add_func.h"
@@ -23,6 +21,12 @@
 #include "domain/tfidf_func.h"
 
 #include "adapters/file_corpus.h"
+
+#ifdef _WIN32
+#include "adapters/win/win_tcp_listener.h"
+#else
+#include "adapters/linux/linux_tcp_listener.h"
+#endif
 
 static uint16_t parse_port(int argc, char* argv[]) {
     uint16_t port = 5555;
@@ -38,8 +42,7 @@ static uint16_t parse_port(int argc, char* argv[]) {
 static nlohmann::json load_api_spec(const std::string& path) {
     std::ifstream file(path);
     if (!file.is_open()) {
-        std::cerr << "Warning: could not open " << path
-                  << ", using empty spec." << std::endl;
+        std::cerr << "Warning: could not open " << path << ", using empty spec." << std::endl;
         return nlohmann::json::object();
     }
     return nlohmann::json::parse(file);
@@ -51,7 +54,7 @@ int main(int argc, char* argv[]) {
     // Load API spec
     nlohmann::json api_spec = load_api_spec("api_spec.json");
 
-    // --- Composition Root ---
+    //Composition Root
     iris::Container container;
 
     // Register framer
@@ -88,10 +91,14 @@ int main(int argc, char* argv[]) {
             return dispatcher;
         });
 
-    // Register listener
+    // Register listener — platform-specific factory selected at compile time
     container.register_singleton<std::shared_ptr<iris::IListener>>(
         "listener", []() -> std::shared_ptr<iris::IListener> {
-            return std::make_shared<iris::TcpListener>();
+#ifdef _WIN32
+            return std::make_shared<iris::WinTcpListener>();
+#else
+            return std::make_shared<iris::LinuxTcpListener>();
+#endif
         });
 
     // Resolve dependencies
@@ -116,7 +123,7 @@ int main(int argc, char* argv[]) {
         try {
             auto conn = listener->accept();
             std::cout << "Client connected." << std::endl;
-            handler.handle_connection(conn);
+            handler.handle_connection(*conn);
             std::cout << "Client disconnected." << std::endl;
         } catch (const std::exception& e) {
             std::cerr << "Accept error: " << e.what() << std::endl;

@@ -26,7 +26,6 @@ FetchContent_MakeAvailable(googletest nlohmann_json)
 enable_testing()
 
 add_library(iris_lib STATIC
-    src/adapters/tcp_listener.cpp
     src/adapters/file_corpus.cpp
     src/adapters/dispatcher.cpp
     src/request_handler.cpp
@@ -39,7 +38,14 @@ target_link_libraries(iris_lib PUBLIC
 )
 
 if(WIN32)
+    target_sources(iris_lib PRIVATE
+        src/adapters/win/win_connection.cpp
+        src/adapters/win/win_tcp_listener.cpp)
     target_link_libraries(iris_lib PUBLIC ws2_32)
+else()
+    target_sources(iris_lib PRIVATE
+        src/adapters/linux/linux_connection.cpp
+        src/adapters/linux/linux_tcp_listener.cpp)
 endif()
 
 add_executable(iris_tests
@@ -52,6 +58,7 @@ add_executable(iris_tests
     tests/test_to_base.cpp
     tests/test_tfidf.cpp
     tests/test_file_corpus.cpp
+    tests/test_connection_interface.cpp
 )
 
 target_link_libraries(iris_tests PRIVATE

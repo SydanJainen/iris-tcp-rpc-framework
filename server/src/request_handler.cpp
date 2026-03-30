@@ -14,7 +14,7 @@ RequestHandler::RequestHandler(IFramer& framer,
     dispatcher_(dispatcher),
     api_spec_(std::move(api_spec)) {}
 
-void RequestHandler::handle_connection(Connection& conn) {
+void RequestHandler::handle_connection(IConnection& conn) {
     while (true) {
         try {
             std::vector<uint8_t> header = read_exact(conn, 4);
@@ -93,7 +93,7 @@ void RequestHandler::handle_connection(Connection& conn) {
     }
 }
 
-std::vector<uint8_t> RequestHandler::read_exact(Connection& conn, size_t n) {
+std::vector<uint8_t> RequestHandler::read_exact(IConnection& conn, size_t n) {
     std::vector<uint8_t> buffer;
     buffer.reserve(n);
     while (buffer.size() < n) {
@@ -107,14 +107,14 @@ std::vector<uint8_t> RequestHandler::read_exact(Connection& conn, size_t n) {
     return buffer;
 }
 
-void RequestHandler::send_json_response(Connection& conn,
+void RequestHandler::send_json_response(IConnection& conn,
                                          const nlohmann::json& response) {
     auto payload = serializer_.serialize(response);
     auto frame = framer_.pack(payload);
     conn.send(frame);
 }
 
-void RequestHandler::send_error_response(Connection& conn,
+void RequestHandler::send_error_response(IConnection& conn,
                                           const std::string& id,
                                           const std::string& error_code,
                                           const std::string& message) {
