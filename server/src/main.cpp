@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -31,14 +32,25 @@
 #endif
 
 static uint16_t parse_port(int argc, char* argv[]) {
-    uint16_t port = 5555;
+    // CLI --port flag takes priority
     for (int i = 1; i < argc - 1; ++i) {
         if (std::string(argv[i]) == "--port") {
-            port = static_cast<uint16_t>(std::stoi(argv[i + 1]));
-            break;
+            return static_cast<uint16_t>(std::stoi(argv[i + 1]));
         }
     }
-    return port;
+
+    // Fall back to PORT environment variable
+    const char* env_port = std::getenv("PORT");
+    if (env_port != nullptr) {
+        try {
+            return static_cast<uint16_t>(std::stoi(env_port));
+        } catch (const std::exception& e) {
+            std::cerr << "Warning: invalid PORT env var '" << env_port
+                      << "', using default 5555." << std::endl;
+        }
+    }
+
+    return 5555;
 }
 
 static nlohmann::json load_api_spec(const std::string& path) {

@@ -1,0 +1,7 @@
+build/
+tests/
+.vscode/
+*.o
+*.obj
+CMakeCache.txt
+CMakeFiles/

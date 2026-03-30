@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 
 from src.adapters.in_memory_transaction_log import InMemoryTransactionLog
@@ -18,14 +19,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--host",
-        default="localhost",
-        help="Server host.default: localhost",
+        default=os.environ.get("SERVER_HOST", "localhost"),
+        help="Server host (default: localhost, env: SERVER_HOST)",
     )
     parser.add_argument(
         "--port",
         type=int,
-        default=5555,
-        help="Server port (default: 5555)",
+        default=int(os.environ.get("SERVER_PORT", "5555")),
+        help="Server port (default: 5555, env: SERVER_PORT)",
     )
     parser.add_argument(
         "--timeout",
