@@ -1,22 +1,39 @@
+# C++ build
 server/build/
 server/cmake-build-*/
 *.o
 *.obj
 *.exe
 *.out
+*.pdb
+*.ilk
+*.lib
+*.exp
 
-client/__pycache__/
-client/**/__pycache__/
-client/.venv/
-client/*.egg-info/
+# Python
+__pycache__/
 *.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
 
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*.suo
+*.user
+*.filters
 
+# Docker
 .docker/
 
+# OS
 Thumbs.db
 .DS_Store
+
+# Tools
+tools/__pycache__/

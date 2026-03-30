@@ -1,17 +1,39 @@
 #include "request_handler.h"
 
+#include <chrono>
+#include <ctime>
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 
 namespace iris {
 
+static std::string current_iso8601() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t t = std::chrono::system_clock::to_time_t(now);
+    std::tm tm_val{};
+#ifdef _WIN32
+    gmtime_s(&tm_val, &t);
+#else
+    gmtime_r(&t, &tm_val);
+#endif
+    std::ostringstream oss;
+    oss << std::put_time(&tm_val, "%Y-%m-%dT%H:%M:%SZ");
+    return oss.str();
+}
+
 RequestHandler::RequestHandler(IFramer& framer,
                                ISerializer& serializer,
                                IDispatcher& dispatcher,
-                               nlohmann::json api_spec): 
+                               IMetrics& metrics,
+                               ITransactionLog& transaction_log,
+                               nlohmann::json api_spec):
     framer_(framer),
     serializer_(serializer),
     dispatcher_(dispatcher),
+    metrics_(metrics),
+    transaction_log_(transaction_log),
     api_spec_(std::move(api_spec)) {}
 
 void RequestHandler::handle_connection(IConnection& conn) {
@@ -42,19 +64,19 @@ void RequestHandler::handle_connection(IConnection& conn) {
             }
 
             std::string id = request.value("id", "");
-            std::string command = request.value("command", "");
+            std::string command = request.value("cmd", "");
 
             if (command == "get_spec") {
                 nlohmann::json response;
                 response["id"] = id;
-                response["status"] = "success";
+                response["status"] = "ok";
                 response["result"] = api_spec_;
                 send_json_response(conn, response);
                 continue;
             }
 
             if (command.empty()) {
-                send_error_response(conn, id, "BAD_ARGUMENTS", "Missing 'command' field");
+                send_error_response(conn, id, "BAD_ARGUMENTS", "Missing 'cmd' field");
                 continue;
             }
 
@@ -65,24 +87,67 @@ void RequestHandler::handle_connection(IConnection& conn) {
                 }
             }
 
-            try {
-                std::any result = dispatcher_.dispatch(command, args);
-                nlohmann::json response;
-                response["id"] = id;
-                response["status"] = "success";
-                response["result"] = any_to_json(result);
-                send_json_response(conn, response);
-            } catch (const std::runtime_error& e) {
-                std::string msg = e.what();
-                if (msg.starts_with("UNKNOWN_COMMAND")) {
-                    send_error_response(conn, id, "UNKNOWN_COMMAND", msg);
-                } else {
-                    send_error_response(conn, id, "INTERNAL_ERROR", msg);
+            {
+                TransactionRecord rec;
+                rec.id = id;
+                rec.timestamp = current_iso8601();
+                rec.command = command;
+                rec.args = args;
+
+                auto t_start = std::chrono::steady_clock::now();
+                bool success = false;
+                std::string err_code;
+                std::string err_msg;
+                std::any dispatch_result;
+
+                try {
+                    dispatch_result = dispatcher_.dispatch(command, args);
+                    success = true;
+                } catch (const std::runtime_error& e) {
+                    std::string msg = e.what();
+                    if (msg.starts_with("UNKNOWN_COMMAND")) {
+                        err_code = "UNKNOWN_COMMAND";
+                    } else {
+                        err_code = "INTERNAL_ERROR";
+                    }
+                    err_msg = msg;
+                } catch (const std::invalid_argument& e) {
+                    err_code = "BAD_ARGUMENTS";
+                    err_msg = e.what();
+                } catch (const std::exception& e) {
+                    err_code = "INTERNAL_ERROR";
+                    err_msg = e.what();
                 }
-            } catch (const std::invalid_argument& e) {
-                send_error_response(conn, id, "BAD_ARGUMENTS", e.what());
-            } catch (const std::exception& e) {
-                send_error_response(conn, id, "INTERNAL_ERROR", e.what());
+
+                auto t_end = std::chrono::steady_clock::now();
+                double duration_ms = std::chrono::duration<double, std::milli>(
+                    t_end - t_start).count();
+
+                // Record metrics
+                metrics_.record(command, duration_ms, success);
+
+                // Build and log transaction record
+                rec.processing_time_ms = duration_ms;
+                if (success) {
+                    rec.status = "ok";
+                    rec.result = dispatch_result;
+                } else {
+                    rec.status = "error";
+                    rec.error_code = err_code;
+                    rec.message = err_msg;
+                }
+                transaction_log_.log(rec);
+
+                // Send response
+                if (success) {
+                    nlohmann::json response;
+                    response["id"] = id;
+                    response["status"] = "ok";
+                    response["result"] = any_to_json(dispatch_result);
+                    send_json_response(conn, response);
+                } else {
+                    send_error_response(conn, id, err_code, err_msg);
+                }
             }
 
         } catch (const std::exception& e) {

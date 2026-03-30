@@ -12,6 +12,8 @@
 #include "adapters/length_prefixed_framer.h"
 #include "adapters/json_serializer.h"
 #include "adapters/dispatcher.h"
+#include "adapters/metrics_collector.h"
+#include "adapters/in_memory_transaction_log.h"
 
 #include "domain/add_func.h"
 #include "domain/reverse_func.h"
@@ -69,6 +71,18 @@ int main(int argc, char* argv[]) {
             return std::make_shared<iris::JsonSerializer>();
         });
 
+    // Register metrics
+    container.register_singleton<std::shared_ptr<iris::IMetrics>>(
+        "metrics", []() -> std::shared_ptr<iris::IMetrics> {
+            return std::make_shared<iris::MetricsCollector>();
+        });
+
+    // Register transaction log
+    container.register_singleton<std::shared_ptr<iris::ITransactionLog>>(
+        "transaction_log", []() -> std::shared_ptr<iris::ITransactionLog> {
+            return std::make_shared<iris::InMemoryTransactionLog>();
+        });
+
     // Register corpus
     container.register_singleton<std::shared_ptr<iris::ICorpus>>(
         "corpus", []() -> std::shared_ptr<iris::ICorpus> {
@@ -105,10 +119,12 @@ int main(int argc, char* argv[]) {
     auto& framer = container.resolve<std::shared_ptr<iris::IFramer>>("framer");
     auto& serializer = container.resolve<std::shared_ptr<iris::ISerializer>>("serializer");
     auto& dispatcher = container.resolve<std::shared_ptr<iris::IDispatcher>>("dispatcher");
+    auto& metrics = container.resolve<std::shared_ptr<iris::IMetrics>>("metrics");
+    auto& transaction_log = container.resolve<std::shared_ptr<iris::ITransactionLog>>("transaction_log");
     auto& listener = container.resolve<std::shared_ptr<iris::IListener>>("listener");
 
     // Build RequestHandler
-    iris::RequestHandler handler(*framer, *serializer, *dispatcher, api_spec);
+    iris::RequestHandler handler(*framer, *serializer, *dispatcher, *metrics, *transaction_log, api_spec);
 
     // Start listener
     try {

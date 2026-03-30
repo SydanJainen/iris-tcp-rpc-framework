@@ -59,6 +59,8 @@ add_executable(iris_tests
     tests/test_tfidf.cpp
     tests/test_file_corpus.cpp
     tests/test_connection_interface.cpp
+    tests/test_metrics_collector.cpp
+    tests/test_transaction_log.cpp
 )
 
 target_link_libraries(iris_tests PRIVATE

@@ -2,12 +2,14 @@
 
 import time
 import uuid
-from collections import defaultdict
+from datetime import datetime, timezone
 from typing import Any
 
 from src.ports.i_framer import IFramer
+from src.ports.i_metrics import IMetrics
 from src.ports.i_presenter import IPresenter
 from src.ports.i_serializer import ISerializer
+from src.ports.i_transaction_log import ITransactionLog
 from src.ports.i_transport import ITransport
 from src.models import MetricsSummary, TransactionRecord
 
@@ -20,6 +22,8 @@ class ApiClient:
         framer: IFramer,
         serializer: ISerializer,
         presenter: IPresenter,
+        metrics: IMetrics,
+        transaction_log: ITransactionLog,
         host: str = "localhost",
         port: int = 5555,
     ) -> None:
@@ -27,13 +31,11 @@ class ApiClient:
         self._framer = framer
         self._serializer = serializer
         self._presenter = presenter
+        self._metrics = metrics
+        self._transaction_log = transaction_log
         self._host = host
         self._port = port
         self._spec: dict = {}
-        self._history: list[TransactionRecord] = []
-        self._metrics: dict[str, dict[str, Any]] = defaultdict(
-            lambda: {"calls": 0, "total_ms": 0.0, "errors": 0}
-        )
 
         self._connect_and_load_spec()
 
@@ -45,7 +47,7 @@ class ApiClient:
 
     def _fetch_spec(self) -> dict:
         req_id = str(uuid.uuid4())
-        request = {"id": req_id, "command": "get_spec", "args": []}
+        request = {"id": req_id, "cmd": "get_spec", "args": []}
         raw = self._serializer.serialize(request)
         framed = self._framer.pack(raw)
         self._transport.send(framed)
@@ -57,7 +59,7 @@ class ApiClient:
         if response.get("id") != req_id:
             raise RuntimeError("Spec response id mismatch")
 
-        if response.get("status") != "success":
+        if response.get("status") != "ok":
             raise RuntimeError(
                 f"Failed to fetch spec: {response.get('message', 'unknown error')}"
             )
@@ -93,7 +95,7 @@ class ApiClient:
             )
 
         req_id = str(uuid.uuid4())
-        request = {"id": req_id, "command": cmd, "args": args}
+        request = {"id": req_id, "cmd": cmd, "args": args}
 
         raw = self._serializer.serialize(request)
         framed = self._framer.pack(raw)
@@ -112,9 +114,11 @@ class ApiClient:
                 f"got {response.get('id')}"
             )
 
+        success = response.get("status") == "ok"
+
         record = TransactionRecord(
             id=uuid.UUID(req_id),
-            timestamp=time.strftime("%Y-%m-%dT%H:%M:%S"),
+            timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
             command=cmd,
             args=args,
             status=response.get("status", ""),
@@ -123,15 +127,12 @@ class ApiClient:
             message=response.get("message"),
             round_trip_ms=elapsed_ms,
         )
-        self._history.append(record)
+        self._transaction_log.log(record)
+        self._metrics.record(cmd, elapsed_ms, success)
 
-        self._metrics[cmd]["calls"] += 1
-        self._metrics[cmd]["total_ms"] += elapsed_ms
-
-        if response.get("status") == "success":
+        if success:
             return response["result"]
 
-        self._metrics[cmd]["errors"] += 1
         error_code = response.get("error_code", "UNKNOWN")
         message = response.get("message", "Unknown error")
         raise RuntimeError(f"[{error_code}] {message}")
@@ -140,21 +141,10 @@ class ApiClient:
         return self._spec
 
     def get_history(self) -> list[TransactionRecord]:
-        return list(self._history)
+        return self._transaction_log.get_history(limit=50)
 
     def get_metrics(self) -> list[MetricsSummary]:
-        result: list[MetricsSummary] = []
-        for cmd, data in self._metrics.items():
-            avg_ms = data["total_ms"] / data["calls"] if data["calls"] else 0.0
-            result.append(
-                MetricsSummary(
-                    command=cmd,
-                    total_calls=data["calls"],
-                    avg_time_ms=avg_ms,
-                    total_errors=data["errors"],
-                )
-            )
-        return result
+        return self._metrics.get_summary()
 
     def close(self) -> None:
         self._transport.close()
