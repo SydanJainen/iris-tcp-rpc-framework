@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Standalone integration test for the Iris RPC server.
-
-Connects to the server, exercises core commands, and reports results.
-Exit code 0 on success, 1 on any failure.
-
-Usage:
+"""Standalone integration test.
     python tools/integration_test.py --host localhost --port 5555
 """
 
@@ -15,11 +10,6 @@ import socket
 import struct
 import sys
 import uuid
-
-
-# ---------------------------------------------------------------------------
-# Low-level helpers (mirrors the client protocol)
-# ---------------------------------------------------------------------------
 
 def _pack(payload: bytes) -> bytes:
     """Length-prefixed framing: 4-byte big-endian length + payload."""
@@ -57,11 +47,6 @@ def _call(sock: socket.socket, cmd: str, args: list) -> dict:
     if response.get("id") != req_id:
         raise RuntimeError(f"ID mismatch: expected {req_id}, got {response.get('id')}")
     return response
-
-
-# ---------------------------------------------------------------------------
-# Test cases
-# ---------------------------------------------------------------------------
 
 def test_get_spec(sock: socket.socket) -> None:
     resp = _call(sock, "get_spec", [])
@@ -101,11 +86,6 @@ def test_unknown_command(sock: socket.socket) -> None:
     assert resp["status"] == "error", (
         f"Unknown command should return error, got: {resp}"
     )
-
-
-# ---------------------------------------------------------------------------
-# Runner
-# ---------------------------------------------------------------------------
 
 ALL_TESTS = [
     ("get_spec", test_get_spec),
